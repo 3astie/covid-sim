@@ -69,7 +69,7 @@ int GetInputParameter3(FILE*, const char*, const char*, void*, int, int, int);
 
 param P;
 person* Hosts;
-household* Households;
+std::vector<Household> Households;
 popvar State, StateT[MAX_NUM_THREADS];
 cell* Cells; // Cells[i] is the i'th cell
 cell ** CellLookup; // CellLookup[i] is a pointer to the i'th populated cell
@@ -4024,7 +4024,7 @@ void LoadSnapshot(void)
 
 	zfread_big((void*)Hosts, sizeof(person), (size_t)P.PopSize, dat);
 	fprintf(stderr, ".");
-	zfread_big((void*)Households, sizeof(household), (size_t)P.NH, dat);
+	zfread_big((void*)Households.data(), sizeof(Household), (size_t)P.NH, dat);
 	fprintf(stderr, ".");
 	zfread_big((void*)Cells, sizeof(cell), (size_t)P.NC, dat);
 	fprintf(stderr, ".");
@@ -4099,7 +4099,7 @@ void SaveSnapshot(void)
 	zfwrite_big((void*)Hosts, sizeof(person), (size_t)P.PopSize, dat);
 
 	fprintf(stderr, "## %i\n", i++);
-	zfwrite_big((void*)Households, sizeof(household), (size_t)P.NH, dat);
+	zfwrite_big((void*)Households.data(), sizeof(Household), (size_t)P.NH, dat);
 	fprintf(stderr, "## %i\n", i++);
 	zfwrite_big((void*)Cells, sizeof(cell), (size_t)P.NC, dat);
 	fprintf(stderr, "## %i\n", i++);

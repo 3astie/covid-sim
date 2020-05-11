@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
 #include "binio.h"
 #include "Error.h"
 #include "Rand.h"
@@ -1070,7 +1071,8 @@ void SetupPopulation(char* DensityFile, char* SchoolFile, char* RegDemogFile)
 			k += m;
 		}
 	}
-	if (!(Households = (household*)malloc(P.NH * sizeof(household)))) ERR_CRITICAL("Unable to allocate household storage\n");
+    // Reserve all our household memory at once
+    Households.reserve(P.NH);
 	for (j = 0; j < NUM_AGE_GROUPS; j++) AgeDist[j] = AgeDist2[j] = 0;
 	if (P.DoHouseholds) fprintf(stderr, "Household sizes assigned to %i people\n", i);
 #pragma omp parallel for private(tn,j2,j,i,k,x,y,xh,yh,i2,m) schedule(static,1)
@@ -1096,11 +1098,7 @@ void SetupPopulation(char* DensityFile, char* SchoolFile, char* RegDemogFile)
 						Hosts[i + i2].inf = InfStat_Susceptible; //added this so that infection status is set to zero and household r0 is correctly calculated
 					}
 				}
-				Households[Hosts[i].hh].FirstPerson = i;
-				Households[Hosts[i].hh].nh = m;
-				Households[Hosts[i].hh].nhr = m;
-				Households[Hosts[i].hh].loc_x = (float)xh;
-				Households[Hosts[i].hh].loc_y = (float)yh;
+                Households.emplace_back(i, m, m, (float)xh, (float)yh);
 				i += m;
 				k += m;
 			}

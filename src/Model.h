@@ -3,6 +3,8 @@
 #ifndef COVIDSIM_MODEL_H_INCLUDED_
 #define COVIDSIM_MODEL_H_INCLUDED_
 
+#include <vector>
+
 #include "Country.h"
 #include "MachineDefines.h"
 #include "Constants.h"
@@ -53,12 +55,16 @@ typedef struct PERSON {
 
 } person;
 
-typedef struct HOUSEHOLD {
+struct Household {
+
+    Household(int p_FirstPerson, unsigned short int p_nh, unsigned short int p_nhr, float p_loc_x, float p_loc_y)
+        : FirstPerson(p_FirstPerson), nh(p_nh), nhr(p_nhr), loc_x(p_loc_x), loc_y(p_loc_y) {}
+
 	int FirstPerson;
 	unsigned short int nh; // number people in household
 	float loc_x, loc_y;
 	unsigned short int nhr;
-} household;
+};
 
 /*
 In the main InfectSweep loop, we cannot safely set
@@ -333,7 +339,7 @@ typedef struct ADMINUNIT {
 #pragma pack(pop)
 
 extern person* Hosts;
-extern household* Households;
+extern std::vector<Household> Households;
 extern popvar State, StateT[MAX_NUM_THREADS];
 extern cell* Cells, ** CellLookup;
 extern microcell* Mcells, ** McellLookup;
