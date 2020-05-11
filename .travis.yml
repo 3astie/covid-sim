@@ -1,0 +1,22 @@
+sudo: false
+
+dist: bionic
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - cmake
+      - cmake-data
+      - build-essential
+      - g++-9
+
+branches:
+  only:
+    - master
+
+script: 
+  - CXX=g++-9 ./cleanBuildTests.sh
+  - cd tests
+  - ./regressiontest_UK_100th.py
