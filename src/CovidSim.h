@@ -1,11 +1,7 @@
-#pragma once
-
 #ifndef COVIDSIM_COVIDSIM_H_INCLUDED_
 #define COVIDSIM_COVIDSIM_H_INCLUDED_
 
 #include "MachineDefines.h"
-
-#define KMP_LIBRARY throughput
 
 #include <limits.h>
 #include <stdio.h>

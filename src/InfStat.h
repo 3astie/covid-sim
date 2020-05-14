@@ -1,5 +1,3 @@
-#pragma once
-
 #ifndef COVIDSIM_INFSTAT_H_INCLUDED_
 #define COVIDSIM_INFSTAT_H_INCLUDED_
 
@@ -17,6 +15,4 @@
 #define InfStat_Dead_WasSymp					-5				//// Dead was symptomatic
 #define InfStat_Dead							5				//// Dead (will use this for abs() values) so code reads correctly
 
-
-#define NUM_SYMPTO_SEVERITY_CLASSES 4
 #endif // COVIDSIM_INFSTAT_H_INCLUDED_

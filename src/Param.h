@@ -1,11 +1,16 @@
-#pragma once
-
 #ifndef COVIDSIM_PARAM_H_INCLUDED_
 #define COVIDSIM_PARAM_H_INCLUDED_
 
 #include "Country.h"
 #include "Constants.h"
 #include "Enum.h"
+
+/** @brief Enumeration of bitmap formats. */
+enum BitmapFormats
+{
+  BF_PNG = 0,  // PNG - default if IMAGE_MAGICK or _WIN32 defined
+  BF_BMP = 1   // BMP - fall-back
+};
 
 /**
  * @brief Stores the parameters for the simulation.
@@ -44,6 +49,7 @@ typedef struct PARAM {
 	int bheight2; // Height in pixels of the entire bitmap output, including both the spectrum at the top and the map area
 	int bminx, bminy;
 	int OutputBitmap; // Whether to output a bitmap
+	BitmapFormats BitmapFormat; // Format of bitmap (platform dependent and command-line /BM: specified).
 	int DoSI, DoHeteroDensity, DoPeriodicBoundaries, DoImmuneBitmap, OutputBitmapDetected; //added OutputBitmapDetected - ggilani 04/08/15
 	int DoHouseholds, DoPlaces, PlaceTypeNum, Nplace[PlaceType::Count], SmallEpidemicCases, DoPlaceGroupTreat;
 	int NumInitialInfections[MAX_NUM_SEED_LOCATIONS], DoRandomInitialInfectionLoc, DoAllInitialInfectioninSameLoc;
@@ -58,6 +64,7 @@ typedef struct PARAM {
 	long nextSetupSeed1, nextSetupSeed2; // The next RNG seeds to use when we need to reinitialise the RNG for setup
 	long nextRunSeed1, nextRunSeed2; // The next RNG seeds to use when we need to reinitialise the RNG for the model
 	int ResetSeeds,KeepSameSeeds, ResetSeedsPostIntervention, ResetSeedsFlag, TimeToResetSeeds;
+	double LongitudeCutLine; // Longitude to image earth is cut at to produce a flat map.  Default -360 degrees (effectively -180).  Use to ensure countries have a contiguous boundary
 	double SpatialBoundingBox[4], LocationInitialInfection[MAX_NUM_SEED_LOCATIONS][2], InitialInfectionsAdminUnitWeight[MAX_NUM_SEED_LOCATIONS], TimeStepsPerDay;
 	double FalsePositiveRate, FalsePositivePerCapitaIncidence, FalsePositiveAgeRate[NUM_AGE_GROUPS];
 	double latent_icdf[CDF_RES + 1], infectious_icdf[CDF_RES + 1], infectious_prof[INFPROF_RES + 1], infectiousness[MAX_INFECTIOUS_STEPS];

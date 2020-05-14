@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "binio.h"
+#include "BinIO.h"
 #include "Error.h"
 #include "Rand.h"
 #include "Kernels.h"
@@ -13,7 +13,6 @@
 #include "SetupModel.h"
 #include "Model.h"
 #include "ModelMacros.h"
-#include "SharedFuncs.h"
 #include "InfStat.h"
 #include "Bitmap.h"
 
@@ -82,7 +81,14 @@ void SetupModel(char* DensityFile, char* NetworkFile, char* SchoolFile, char* Re
 					sscanf(buf, "%lg %lg %lg %i", &x, &y, &t, &i2);
 					l = 0;
 				}
-				BF[index].x = x;
+				// Ensure we use an x which gives us a contiguous whole for the
+				// geography.
+				if (x >= P.LongitudeCutLine) {
+					BF[index].x = x;
+				}
+				else {
+					BF[index].x = x + 360;
+				}
 				BF[index].y = y;
 				BF[index].pop = t;
 				BF[index].cnt = i2;
@@ -146,6 +152,12 @@ void SetupModel(char* DensityFile, char* NetworkFile, char* SchoolFile, char* Re
 		fprintf(stderr, "Adjusted bounding box = (%lg, %lg)- (%lg, %lg)\n", P.SpatialBoundingBox[0], P.SpatialBoundingBox[1], P.SpatialBoundingBox[2], P.SpatialBoundingBox[3]);
 		fprintf(stderr, "Number of cells = %i (%i x %i)\n", P.NC, P.ncw, P.nch);
 		fprintf(stderr, "Population size = %i \n", P.PopSize);
+		if (P.width > 180) {
+			fprintf(stderr, "WARNING: Width of bounding box > 180 degrees.  Results may be inaccurate.\n");
+		}
+		if (P.height > 90) {
+			fprintf(stderr, "WARNING: Height of bounding box > 90 degrees.  Results may be inaccurate.\n");
+		}
 		s = 1;
 		P.DoPeriodicBoundaries = 0;
 	}
@@ -185,18 +197,18 @@ void SetupModel(char* DensityFile, char* NetworkFile, char* SchoolFile, char* Re
 		P.LocationInitialInfection[i][0] -= P.SpatialBoundingBox[0];
 		P.LocationInitialInfection[i][1] -= P.SpatialBoundingBox[1];
 	}
+	// Find longest distance - may not be diagonally across the bounding box.
 	t = dist2_raw(0, 0, P.width, P.height);
+	double tw = dist2_raw(0, 0, P.width, 0);
+	double th = dist2_raw(0, 0, 0, P.height);
+	if (tw > t) t = tw;
+	if (th > t) t = th;
 	if (P.DoPeriodicBoundaries) t *= 0.25;
 	if (!(nKernel = (double*)calloc(P.NKR + 1, sizeof(double)))) ERR_CRITICAL("Unable to allocate kernel storage\n");
 	if (!(nKernelHR = (double*)calloc(P.NKR + 1, sizeof(double)))) ERR_CRITICAL("Unable to allocate kernel storage\n");
 	P.KernelDelta = t / P.NKR;
 	//	fprintf(stderr,"** %i %lg %lg %lg %lg | %lg %lg %lg %lg \n",P.DoUTM_coords,P.SpatialBoundingBox[0],P.SpatialBoundingBox[1],P.SpatialBoundingBox[2],P.SpatialBoundingBox[3],P.width,P.height,t,P.KernelDelta);
 	fprintf(stderr, "Coords xmcell=%lg m   ymcell = %lg m\n", sqrt(dist2_raw(P.width / 2, P.height / 2, P.width / 2 + P.mcwidth, P.height / 2)), sqrt(dist2_raw(P.width / 2, P.height / 2, P.width / 2, P.height / 2 + P.mcheight)));
-	P.KernelShape = P.MoveKernelShape;
-	P.KernelScale = P.MoveKernelScale;
-	P.KernelP3 = P.MoveKernelP3;
-	P.KernelP4 = P.MoveKernelP4;
-	P.KernelType = P.MoveKernelType;
 	t2 = 0.0;
 
 	SetupPopulation(DensityFile, SchoolFile, RegDemogFile);
@@ -214,13 +226,13 @@ void SetupModel(char* DensityFile, char* NetworkFile, char* SchoolFile, char* Re
 		{
 			TSMean[i].S = TSMean[i].I = TSMean[i].R = TSMean[i].D = TSMean[i].L =
 				TSMean[i].incI = TSMean[i].incR = TSMean[i].incC = TSMean[i].incDC = TSMean[i].cumDC =
-				TSMean[i].incTC = TSMean[i].cumT = TSMean[i].cumTP = TSMean[i].cumUT = TSMean[i].cumV = TSMean[i].H = TSMean[i].incH =
+				TSMean[i].incTC = TSMean[i].cumT = TSMean[i].cumTP = TSMean[i].cumUT = TSMean[i].cumV = TSMean[i].incH =
 				TSMean[i].incCT = TSMean[i].CT = TSMean[i].incCC = TSMean[i].incDCT = TSMean[i].DCT = //added contact tracing, cases who are contacts
 				TSMean[i].cumTmax = TSMean[i].cumVmax = TSMean[i].incD = TSMean[i].incHQ = TSMean[i].incAC =
 				TSMean[i].incAH = TSMean[i].incAA = TSMean[i].incACS = TSMean[i].incAPC =
 				TSMean[i].incAPA = TSMean[i].incAPCS = TSMean[i].Rdenom = 0;
 			TSVar[i].S = TSVar[i].I = TSVar[i].R = TSVar[i].D = TSVar[i].L =
-				TSVar[i].incI = TSVar[i].incR = TSVar[i].incC = TSVar[i].incTC = TSVar[i].incD = TSVar[i].H = TSVar[i].incH = TSVar[i].incCT = TSVar[i].CT = TSVar[i].incCC = TSMean[i].incDCT = TSVar[i].DCT = 0;
+				TSVar[i].incI = TSVar[i].incR = TSVar[i].incC = TSVar[i].incTC = TSVar[i].incD = TSVar[i].incH = TSVar[i].incCT = TSVar[i].CT = TSVar[i].incCC = TSMean[i].incDCT = TSVar[i].DCT = 0;
 			for (j = 0; j < PlaceType::Count; j++) TSMean[i].PropPlacesClosed[j] = TSVar[i].PropPlacesClosed[j] = 0;
 			for (j = 0; j < INFECT_TYPE_MASK; j++) TSMean[i].incItype[j] = TSMean[i].Rtype[j] = 0;
 			for (j = 0; j < NUM_AGE_GROUPS; j++) TSMean[i].incCa[j] = TSMean[i].incIa[j] = TSMean[i].incDa[j] = TSMean[i].Rage[j] = 0;
@@ -305,6 +317,11 @@ void SetupModel(char* DensityFile, char* NetworkFile, char* SchoolFile, char* Re
 	P.KeyWorkerNum = P.KeyWorkerIncHouseNum = m = l = 0;
 
 	fprintf(stderr, "Initialising kernel...\n");
+	P.KernelShape = P.MoveKernelShape;
+	P.KernelScale = P.MoveKernelScale;
+	P.KernelP3 = P.MoveKernelP3;
+	P.KernelP4 = P.MoveKernelP4;
+	P.KernelType = P.MoveKernelType;
 	InitKernel(0, 1.0);
 
 	if (P.DoPlaces)
@@ -1614,12 +1631,12 @@ void SetupAirports(void)
 				Airports[i].Inv_DestPlaces[l] = j;
 			}
 		}
+	for (i = 0; i < P.Nplace[P.HotelPlaceType]; i++) Places[P.HotelPlaceType][i].n = 0;
 	P.KernelType = P.MoveKernelType;
 	P.KernelScale = P.MoveKernelScale;
 	P.KernelShape = P.MoveKernelShape;
 	P.KernelP3 = P.MoveKernelP3;
 	P.KernelP4 = P.MoveKernelP4;
-	for (i = 0; i < P.Nplace[P.HotelPlaceType]; i++) Places[P.HotelPlaceType][i].n = 0;
 	InitKernel(0, 1.0);
 	fprintf(stderr, "\nAirport initialisation completed successfully\n");
 }
@@ -1636,7 +1653,7 @@ void AssignHouseholdAges(int n, int pers, int tn)
 		- other adults in large households are assumed to be grandparents
 		- for Thailand, 2 person households are 95% couples without children, 5% 1 parent families
 	*/
-	int i, j, k, l, nc, ad;
+	int i, j, k, nc, ad;
 	int a[MAX_HOUSEHOLD_SIZE + 2];
 
 	ad = ((P.DoAdunitDemog) && (P.DoAdUnits)) ? Mcells[Hosts[pers].mcell].adunit : 0;
@@ -1772,7 +1789,6 @@ void AssignHouseholdAges(int n, int pers, int tn)
 				{
 					a[nc] = State.InvAgeDist[ad][(int)(1000.0 * ranf_mt(tn))];
 					k = a[nc - 1];
-					l = k - P.MaxChildAge;
 				} while ((a[nc] > a[0] + j) || (a[nc] < k + P.MinParentAgeGap) || (a[nc] < P.MinAdultAge));
 				if ((n > nc + 1) && (ranf_mt(tn) > PROP_OTHER_PARENT_AWAY))
 				{
@@ -1781,10 +1797,8 @@ void AssignHouseholdAges(int n, int pers, int tn)
 						a[nc + 1] = State.InvAgeDist[ad][(int)(1000.0 * ranf_mt(tn))];
 					} while ((a[nc + 1] > a[nc] + P.MaxMFPartnerAgeGap) || (a[nc + 1] < a[nc] - P.MaxFMPartnerAgeGap)
 						|| (a[nc + 1] > a[0] + j) || (a[nc + 1] < k + P.MinParentAgeGap) || (a[nc + 1] < P.MinAdultAge));
-					l = nc + 2;
 				}
-				else
-					l = nc + 1;
+
 				if (n > nc + 2)
 				{
 					j = ((a[nc + 1] > a[nc]) ? a[nc + 1] : a[nc]) + P.OlderGenGap;
@@ -1804,7 +1818,7 @@ void AssignPeopleToPlaces(void)
 	int i, i2, j, j2, k, k2, l, m, m2, tp, f, f2, f3, f4, ic, mx, my, a, cnt, tn, ca, nt, nn;
 	int* PeopleArray;
 	int* NearestPlaces[MAX_NUM_THREADS];
-	double s, t, s2, *NearestPlacesProb[MAX_NUM_THREADS];
+	double s, t, *NearestPlacesProb[MAX_NUM_THREADS];
 	cell* ct;
 	int npt;
 
@@ -2183,7 +2197,6 @@ void AssignPeopleToPlaces(void)
 				{
 					k2 = cnt - ca;
 					m2 = cnt;
-					s2 = 0;
 					a = k2 / 1000;
 					f = k2;
 					for (ic = 0; ic <= 30; ic++)
@@ -2283,11 +2296,6 @@ void AssignPeopleToPlaces(void)
 			free(Cells[i].susceptible);
 			Cells[i].susceptible = Cells[i].infected;
 		}
-		P.KernelScale = P.MoveKernelScale;
-		P.KernelShape = P.MoveKernelShape;
-		P.KernelType = P.MoveKernelType;
-		P.KernelP3 = P.MoveKernelP3;
-		P.KernelP4 = P.MoveKernelP4;
 	}
 
 }
@@ -2478,10 +2486,6 @@ void LoadPeopleToPlaces(char* NetworkFile)
 			}
 	*/	fprintf(stderr, "\n");
 	fclose(dat);
-	P.KernelScale = P.MoveKernelScale;
-	P.KernelShape = P.MoveKernelShape;
-	P.KernelP3 = P.MoveKernelP3;
-	P.KernelP4 = P.MoveKernelP4;
 }
 void SavePeopleToPlaces(char* NetworkFile)
 {

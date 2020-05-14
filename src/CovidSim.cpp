@@ -6,7 +6,7 @@
 #include <stddef.h>
 
 #include "CovidSim.h"
-#include "binio.h"
+#include "BinIO.h"
 #include "Rand.h"
 #include "Error.h"
 #include "Dist.h"
@@ -15,7 +15,6 @@
 #include "Model.h"
 #include "Param.h"
 #include "SetupModel.h"
-#include "SharedFuncs.h"
 #include "ModelMacros.h"
 #include "InfStat.h"
 #include "CalcInfSusc.h"
@@ -24,11 +23,13 @@
 #include <omp.h>
 #endif // _OPENMP
 
-#ifndef max
-#define max(a,b) ((a) > (b) ? (a) : (b))
-#endif
-#ifndef min
-#define min(a,b) ((a) < (b) ? (a) : (b))
+// Use the POSIX name for case-insensitive string comparison: strcasecmp.
+#ifdef _WIN32
+// Windows calls it _stricmp so make strcasecmp an alias.
+#include <string.h>
+#define strcasecmp _stricmp
+#else
+#include <strings.h>
 #endif
 
 void ReadParams(char*, char*);
@@ -116,6 +117,14 @@ ParseCmdLineArgs(int argc, const char** argv, char *ParamFile, char *DensityFile
                  char InterventionFile[][1024] , char *PreParamFile, char *buf, char *sep,
                  int &GotAP, int &GotScF, int &Perr) {
     int GotL = 0, GotS = 0, GotO = 0, GotP = 0, GotPP = 0;
+
+	// Default bitmap format is platform dependent.
+#if defined(IMAGE_MAGICK) || defined(_WIN32)
+	P.BitmapFormat = BF_PNG;
+#else
+	P.BitmapFormat = BF_BMP;
+#endif
+
     if (argc < 7) Perr = 1;
     else
     {
@@ -266,6 +275,28 @@ ParseCmdLineArgs(int argc, const char** argv, char *ParamFile, char *DensityFile
                     sscanf(buf, "%lf %s", &(P.SnapshotSaveTime), SnapshotSaveFile);
                 }
             }
+			else if (argv[i][1] == 'B' && argv[i][2] == 'M' && argv[i][3] == ':')
+			{
+				sscanf(&argv[i][4], "%s", buf);
+				if (strcasecmp(buf, "png") == 0)
+				{
+#if defined(IMAGE_MAGICK) || defined(_WIN32)
+				  P.BitmapFormat = BF_PNG;
+#else
+				  fprintf(stderr, "PNG Bitmaps not supported - please build with Image Magic or WIN32 support\n");
+				  Perr = 1;
+#endif
+				}
+				else if (strcasecmp(buf, "bmp") == 0)
+				{
+				  P.BitmapFormat = BF_BMP;
+				}
+				else
+				{
+				  fprintf(stderr, "Unrecognised bitmap format: %s\n", buf);
+				  Perr = 1;
+				}
+			}
         }
         if (((GotS) && (GotL)) || (!GotP) || (!GotO)) Perr = 1;
 
@@ -275,6 +306,8 @@ ParseCmdLineArgs(int argc, const char** argv, char *ParamFile, char *DensityFile
         }
 
         sprintf(OutFile, "%s", OutFileBase);
+
+        fprintf(stderr, "Bitmap Format = *.%s\n", P.BitmapFormat == BF_PNG ? "png" : "bmp");
     }
 }
 
@@ -438,10 +471,8 @@ int _main(int argc, const char* argv[])
 	sprintf(OutFile, "%s.avE", OutFileBase);
 	//SaveSummaryResults();
 
+	Bitmap_Finalise();
 
-#ifdef WIN32_BM
-	Gdiplus::GdiplusShutdown(m_gdiplusToken);
-#endif
 	fprintf(stderr, "Extinction in %i out of %i runs\n", P.NRactE, P.NRactNE + P.NRactE);
 	fprintf(stderr, "Model ran in %lf seconds\n", ((double)(clock() - cl)) / CLOCKS_PER_SEC);
 	fprintf(stderr, "Model finished\n");
@@ -464,6 +495,9 @@ void ReadParams(char* ParamFile, char* PreParamFile)
 	if (!(ParamFile_dat = fopen(ParamFile, "rb"))) ERR_CRITICAL("Unable to open parameter file\n");
 	PreParamFile_dat = fopen(PreParamFile, "rb");
 	if (!(AdminFile_dat = fopen(AdunitFile, "rb"))) AdminFile_dat = ParamFile_dat;
+	if (!GetInputParameter2(ParamFile_dat, AdminFile_dat, "Longitude cut line", "%lf", (void*) & (P.LongitudeCutLine), 1, 1, 0)) {
+		P.LongitudeCutLine = -360.0;
+	}
 	AgeSuscScale = 1.0;
 		GetInputParameter(ParamFile_dat, PreParamFile_dat, "Update timestep", "%lf", (void*) & (P.TimeStep), 1, 1, 0);
 	GetInputParameter(ParamFile_dat, PreParamFile_dat, "Sampling timestep", "%lf", (void*) & (P.SampleStep), 1, 1, 0);
@@ -2449,7 +2483,7 @@ void InitModel(int run) // passing run number so we can save run number in the i
 
 	if (P.OutputBitmap)
 	{
-#ifdef WIN32_BM
+#ifdef _WIN32
 		//if (P.OutputBitmap == 1)
 		//{
 		//	char buf[200];
@@ -3319,10 +3353,10 @@ void SaveResults(void)
 				fprintf(dat, "%i\t%i\t%i\t%i\n", i, Hosts[i].infector, Hosts[i].infect_type % INFECT_TYPE_MASK, (int)HOST_AGE_YEAR(i));
 		fclose(dat);
 		}
-#if defined(WIN32_BM) || defined(IMAGE_MAGICK)
+#if defined(_WIN32) || defined(IMAGE_MAGICK)
 	static int dm[13] ={0,31,28,31,30,31,30,31,31,30,31,30,31};
 	int d, m, y, dml, f;
-#ifdef WIN32_BM
+#ifdef _WIN32
 	//if(P.OutputBitmap == 1) CloseAvi(avi);
 	//if((TimeSeries[P.NumSamples - 1].extinct) && (P.OutputOnlyNonExtinct))
 	//	{
@@ -3330,7 +3364,7 @@ void SaveResults(void)
 	//	DeleteFile(outname);
 	//	}
 #endif
-	if(P.OutputBitmap >= 1)
+	if(P.OutputBitmap >= 1 && P.BitmapFormat == BF_PNG)
 		{
 		// Generate Google Earth .kml file
 		sprintf(outname, "%s.ge" DIRECTORY_SEPARATOR "%s.ge.kml", OutFile, OutFile); //sprintf(outname,"%s.ge" DIRECTORY_SEPARATOR "%s.kml",OutFileBase,OutFile);
@@ -5418,5 +5452,3 @@ int GetInputParameter3(FILE* dat, const char* SItemName, const char* ItemType, v
 	//	fprintf(stderr,"%s\n",SItemName);
 	return FindFlag;
 }
-
-
